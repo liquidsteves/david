@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Firebase Chat</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src='https://cdn.firebase.com/js/client/2.4.0/firebase.js'></script>
+    <style>
+      body {
+      font-family: 'HelveticaNeue-Light';
+      }
+      .msg {
+      margin: 10px 0;
+      padding: 10px;
+      width: 400px;
+      background-color: #efefef;
+      }
+      #username, #text {
+      margin: 5px 0px;
+      }
+      #post {
+      padding: 0.5em 1em;
+      background-color: #50b1ff;
+      border: none;
+      color: #FFF;
+      }
+        </style>
+  </head>
+  <body>
+    <textarea id="text" rows="4" cols="70">Message</textarea> <br/>
+    <input id="image" type="text" placeholder="Image Url" size=100><br/><br/>
+    <button id="post">Post</button><br/>
+    <div id="results"></div>
+    <div id="debug"><div>
+    <script>
+      var debug = function(str) {
+	  console.log(str);
+      }
+
+     debug("URL:"+window.location.href);
+      var url = new URL(window.location.href);
+      var user = url.searchParams.get("user");
+      var chatroom = url.searchParams.get("room");
+      
+      var myFirebase = new Firebase('https://david-chat-app.firebaseio.com/rooms/'+chatroom);
+      var textInput = document.querySelector('#text');
+      var imageInput = document.querySelector('#image');
+      var postButton = document.querySelector('#post');
+
+      postButton.addEventListener("click", function() {
+	  var msgText = textInput.value;
+	  var msgImage = imageInput.value;
+	  var err;
+	  var onComplete = function(error) {
+	      if (error) {
+		  debug("Write Error:" + error.code + ":" +error.message);
+	  }
+	  };
+	  myFirebase.push({username:user, text:msgText, image:msgImage}, onComplete);
+	  textInput.value = "";
+      });
+
+      /** Function to add a data listener **/
+      var startListening = function() {
+	  myFirebase.on('child_added', function(snapshot) {
+	      debug("childAdded 10");
+	      var msg = snapshot.val();
+	      var msgRefForCommenting = snapshot.ref();
+	      debug(msg.toString());
+	      
+	      var msgUsernameElement = document.createElement("b");
+	      msgUsernameElement.textContent = msg.username;
+	      
+	      var msgTextElement = document.createElement("p");
+	      msgTextElement.textContent = msg.text;
+	      
+	      var msgElement = document.createElement("div");
+	      msgElement.appendChild(msgUsernameElement);
+	      msgElement.appendChild(msgTextElement);
+	      if (msg.image) {
+		  var msgImageElement = document.createElement("img");
+		  msgImageElement.src = msg.image;
+		  msgElement.appendChild(msgImageElement);
+		  msgElement.appendChild(document.createElement("br"));
+	      }
+	      
+	      if (msg.comments) {
+		  var commentsContainer = document.createElement("ul");
+	      }
+	      
+	      for (commentKey in msg.comments) {
+		  var comment = msg.comments[commentKey];
+		  var commentUsernameElement = document.createElement("b");
+		  commentUsernameElement.textContent = comment.username;
+
+		  var commentTextElement = document.createElement("p");
+		  commentTextElement.textContent = comment.text;
+
+		  var commentElement = document.createElement("li");
+		  commentElement.appendChild(commentUsernameElement);
+		  commentElement.appendChild(commentTextElement);
+		  commentsContainer.appendChild(commentElement);
+	      }
+	      if (msg.comments) {
+		  msgElement.appendChild(commentsContainer);
+	      }
+	      
+	      var showRespondElement = document.createElement("a");
+	      showRespondElement.textContent = "Respond";
+	      showRespondElement.href = "#";
+	      
+	      showRespondElement.onclick = function() {
+		  debug("onclick");
+		  showRespondElement.style.display = "none";
+		  
+		  var commentElement = document.createElement("textarea");
+		  commentElement.rows = 4;
+		  commentElement.cols = 50;
+		  commentElement.placeholder = "Say something.";
+		  msgElement.appendChild(commentElement);
+		  msgElement.appendChild(document.createElement("br"));
+		  
+		  var postCommentElement = document.createElement("input");
+		  postCommentElement.value = "Post";
+		  postCommentElement.type = "button";
+		  postCommentElement.addEventListener("click", function() {
+		      var msgText = commentElement.value;
+		      var err;
+		      var onComplete = function(error) {
+			  if (error) {
+			      debug("Write Error:" + error.code + ":" +error.message);
+			  }
+			  window.location.reload();
+		      }
+		      var databaseEntry = msgRefForCommenting.child("comments");
+		      databaseEntry.push({username:user, text:msgText}, onComplete);
+		      
+		      commentElement.value = "";
+		  });
+		  msgElement.appendChild(postCommentElement);
+		  
+		  
+	      }
+	      msgElement.appendChild(showRespondElement);
+	      
+	      msgElement.className = "msg";
+	      document.getElementById("results").appendChild(msgElement);
+	      debug("childAdded 20");
+	  });
+      }
+
+// Begin listening for data
+startListening();
+    </script>
+  </body>
+  </html>
